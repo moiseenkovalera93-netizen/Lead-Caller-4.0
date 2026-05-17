@@ -10,6 +10,9 @@ from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from twilio.rest import Client
 
+# =========================
+# LOGGING
+# =========================
 logging.basicConfig(level=logging.INFO)
 
 # =========================
@@ -35,6 +38,155 @@ twilio = Client(
 TWILIO_FROM = os.getenv("TWILIO_FROM_NUMBER")
 NEXFIELD_NUMBER = os.getenv("NEXFIELD_NUMBER")
 
+CALL_DELAY = 120
+MAX_ATTEMPTS = 3
+
+
+# =========================
+# PHONE PARSER (MASTER FIX)
+# =========================
+def extract_phone(text: str):
+    match = re.search(r'(\+1[\s\-]?\d{10}|\b\d{10}\b)', text)
+    if not match:
+        return None
+
+    digits = re.sub(r"[^\d]", "", match.group())
+
+    if len(digits) == 10:
+        return f"+1{digits}"
+    if len(digits) == 11 and digits.startswith("1"):
+        return f"+{digits}"
+
+    return None
+
+
+# =========================
+# LEAD STORAGE
+# =========================
+def get_lead(key):
+    data = r.get(key)
+    return json.loads(data) if data else None
+
+
+def save_lead(key, lead):
+    r.set(key, json.dumps(lead))
+
+
+# =========================
+# TELEGRAM HANDLER
+# =========================
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text or ""
+
+    lead_phone = extract_phone(text)
+
+    if not lead_phone:
+        return
+
+    # dedup
+    dedup_key = f"{DEDUP_PREFIX}{lead_phone}"
+    if r.get(dedup_key):
+        return
+
+    r.setex(dedup_key, 300, "1")
+
+    lead_key = f"{LEAD_PREFIX}{lead_phone}"
+
+    lead = get_lead(lead_key)
+    if not lead:
+        lead = {
+            "lead_id": str(int(time.time())),
+            "lead_phone": lead_phone,
+            "status": "NEW",
+            "attempts": 0,
+            "created_at": time.time(),
+            "last_error": None
+        }
+
+    lead["status"] = "QUEUED"
+    save_lead(lead_key, lead)
+
+    # IMPORTANT: queue only lead_phone (MASTER FIELD)
+    r.rpush(QUEUE_KEY, json.dumps({
+        "lead_phone": lead_phone,
+        "lead_key": lead_key
+    }))
+
+    await update.message.reply_text(f"📞 Lead queued: {lead_phone}")
+
+
+# =========================
+# CALL PROCESSOR
+# =========================
+def process_call(task):
+    lead_phone = task["lead_phone"]
+    lead_key = task["lead_key"]
+
+    lead = get_lead(lead_key)
+    if not lead:
+        return
+
+    try:
+        lead["status"] = "CALLING"
+        save_lead(lead_key, lead)
+
+        time.sleep(CALL_DELAY)
+
+        # TWILIO CALL (ONLY lead_phone)
+        call = twilio.calls.create(
+            to=lead_phone,
+            from_=TWILIO_FROM,
+            twiml=f"<Response><Say>Please hold</Say><Dial>{NEXFIELD_NUMBER}</Dial></Response>"
+        )
+
+        lead["status"] = "CALLED"
+        lead["attempts"] += 1
+        lead["last_error"] = None
+        lead["twilio_call_sid"] = call.sid
+
+        save_lead(lead_key, lead)
+
+        logging.info(f"CALLED {lead_phone}")
+
+    except Exception as e:
+        lead["attempts"] += 1
+        lead["last_error"] = str(e)
+
+        if lead["attempts"] >= MAX_ATTEMPTS:
+            lead["status"] = "FAILED"
+        else:
+            lead["status"] = "RETRYING"
+            r.rpush(QUEUE_KEY, json.dumps(task))
+
+        save_lead(lead_key, lead)
+        logging.error(f"ERROR {lead_phone}: {e}")
+
+
+# =========================
+# WORKER
+# =========================
+def worker_loop():
+    print("Worker started")
+
+    while True:
+        _, data = r.blpop(QUEUE_KEY)
+        task = json.loads(data)
+        process_call(task)
+
+
+# =========================
+# MAIN
+# =========================
+if __name__ == "__main__":
+
+    threading.Thread(target=worker_loop, daemon=True).start()
+
+    app = Application.builder().token(os.getenv("TELEGRAM_BOT_TOKEN")).build()
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+    print("Bot started")
+
+    app.run_polling()
 CALL_DELAY = 120
 
 
