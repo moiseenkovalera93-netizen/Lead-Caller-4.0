@@ -23,10 +23,11 @@ HISTORY
 Hide Skipped
 Lead-Caller-4.0
 /
-897f9cbc
-Active
+4d8dcb0f
+Crashed
 
-May 17, 2026 at 12:51 AM PDT
+May 17, 2026 at 12:54 AM PDT
+Get Help
 Details
 Build Logs
 Deploy Logs
@@ -34,7 +35,57 @@ Network Flow Logs
 Filter and search logs
 
 You reached the start of the range
-May 17, 2026 at 12:51 AM
+May 17, 2026 at 12:54 AM
+SyntaxError: invalid decimal literal
+  File "/app/main.py", line 18
+    3.13.13python@3.13.13
+          ^
+Starting Container
+  File "/app/main.py", line 18
+    3.13.13python@3.13.13
+          ^
+SyntaxError: invalid decimal literal
+          ^
+SyntaxError: invalid decimal literal
+  File "/app/main.py", line 18
+    3.13.13python@3.13.13
+  File "/app/main.py", line 18
+    3.13.13python@3.13.13
+          ^
+SyntaxError: invalid decimal literal
+  File "/app/main.py", line 18
+    3.13.13python@3.13.13
+          ^
+SyntaxError: invalid decimal literal
+  File "/app/main.py", line 18
+    3.13.13python@3.13.13
+          ^
+SyntaxError: invalid decimal literal
+  File "/app/main.py", line 18
+    3.13.13python@3.13.13
+          ^
+SyntaxError: invalid decimal literal
+  File "/app/main.py", line 18
+    3.13.13python@3.13.13
+          ^
+SyntaxError: invalid decimal literal
+  File "/app/main.py", line 18
+    3.13.13python@3.13.13
+          ^
+SyntaxError: invalid decimal literal
+  File "/app/main.py", line 18
+    3.13.13python@3.13.13
+          ^
+SyntaxError: invalid decimal literal
+  File "/app/main.py", line 18
+    3.13.13python@3.13.13
+          ^
+SyntaxError: invalid decimal literal
+You reached the end of the range
+May 17, 2026 at 12:54 AM
+
+
+500May 17, 2026 at 12:51 AM
 Starting Container
 Worker started
 Bot started
